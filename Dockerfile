@@ -1,20 +1,32 @@
-# set base image (host OS)
-FROM python:3.9
+# 1st stage: build environment
+FROM python:3.9-slim-buster AS builder
 
-# set the working directory in the container
-WORKDIR /app/
+RUN apt-get update \
+    && apt-get install -y build-essential libpq-dev \
+    && apt-get clean
 
-RUN apt -qq update
-RUN apt -qq install -y --no-install-recommends \
-    curl \
-    git \
-    gnupg2 \
-    unzip \
-    wget \
-    ffmpeg \
-    gcc g++ make
+WORKDIR /app
 
-RUN apt-get install -y nodejs npm
+COPY requirements.txt .
+RUN python -m venv /opt/venv
+RUN /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+
+# 2nd stage: final environment
+FROM python:3.9-slim-buster
+
+RUN apt-get update \
+    && apt-get install -y curl git gnupg2 unzip wget ffmpeg neofetch \
+    && apt-get clean
+
+# copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
 
 # install chrome
 RUN mkdir -p /tmp/ && \
@@ -38,7 +50,7 @@ ENV GOOGLE_CHROME_BIN /usr/bin/google-chrome-stable
 
 # install node-js
 RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
-    apt-get install -y nodejs npm && \
+    apt-get install -y nodejs && \
     npm i -g npm
 
 # install rar
@@ -51,11 +63,8 @@ RUN mkdir -p /tmp/ && \
     # clean up
     rm -rf /tmp/rar*
 
-# copy the content of the local src directory to the working directory
+# copy the rest of the application files
 COPY . .
-
-# install dependencies
-RUN pip install -r requirements.txt
 
 # command to run on container start
 CMD [ "bash", "./run" ]
