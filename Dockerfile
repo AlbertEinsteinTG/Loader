@@ -11,7 +11,10 @@ RUN apt -qq install -y --no-install-recommends \
     gnupg2 \
     unzip \
     wget \
-    ffmpeg
+    ffmpeg \
+    gcc g++ make
+
+RUN apt-get install -y nodejs npm
 
 # install chrome
 RUN mkdir -p /tmp/ && \
